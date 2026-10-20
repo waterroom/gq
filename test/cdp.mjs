@@ -43,10 +43,15 @@ const send = (method, params = {}) =>
     ws.send(JSON.stringify({ id, method, params }));
   });
 
+// --window-size is unreliable for layout tests: Windows clamps a real window
+// to a minimum width, so a "430 px" screenshot is a crop of a ~500 px viewport.
+// SHOT_SIZE=WxH overrides the viewport through CDP instead.
+const [vw, vh] = (process.env.SHOT_SIZE || '1040x720').split('x').map(Number);
+
 await send('Page.enable');
 await send('Runtime.enable');
 await send('Emulation.setDeviceMetricsOverride', {
-  width: 1040, height: 720, deviceScaleFactor: 1, mobile: false,
+  width: vw, height: vh, deviceScaleFactor: 1, mobile: false,
 });
 await send('Page.navigate', { url });
 await new Promise((r) => setTimeout(r, waitMs));
@@ -68,6 +73,11 @@ if (exprFile) {
 
 if (shotFile) {
   await new Promise((r) => setTimeout(r, 400));
+  const d = await send('Runtime.evaluate', {
+    expression: 'innerWidth + "x" + innerHeight',
+    returnByValue: true,
+  });
+  console.log('viewport:', d.result?.result?.value);
   const shot = await send('Page.captureScreenshot', { format: 'png' });
   if (!shot.result?.data) {
     console.error('screenshot failed:', JSON.stringify(shot).slice(0, 400));

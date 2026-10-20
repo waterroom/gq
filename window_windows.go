@@ -249,7 +249,11 @@ func installedRuntimeVersion() string {
 // openBrowser is the fallback path. Chromium's --app mode drops the address
 // bar and tabs, so the fallback still looks like an application window rather
 // than a page in a browser.
-func openBrowser(url string) {
+//
+// done is closed when the browser window is closed, so the caller can exit
+// instead of staying resident with the port bound. A second instance would
+// then silently take the next port, leaving two receivers running.
+func openBrowser(url string, done chan<- struct{}) {
 	prof := filepath.Join(os.Getenv("LOCALAPPDATA"), "gq", "browser")
 	_ = os.MkdirAll(prof, 0o755)
 
@@ -266,10 +270,17 @@ func openBrowser(url string) {
 		cmd := exec.Command(p, "--app="+url, "--window-size=1040,720", "--user-data-dir="+prof)
 		if err := cmd.Start(); err == nil {
 			log.Printf("fallback: launched %s in app mode", p)
+			go func() {
+				_ = cmd.Wait()
+				log.Printf("fallback: browser window closed")
+				close(done)
+			}()
 			return
 		}
 	}
 
 	log.Printf("fallback: no chromium browser found, using default protocol handler")
+	// The protocol handler hands off to whatever browser is registered and
+	// gives us no process to watch, so the app stays resident.
 	_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
 }

@@ -31,8 +31,12 @@ func main() {
 	if ok, note := openWindow(url); !ok {
 		log.Printf("webview2 unavailable, falling back to system browser")
 		a.SetWindowFallback(note)
-		openBrowser(url)
-		select {}
+		// Closed when the browser window goes away; stays open when the
+		// window could not be tracked (default protocol handler).
+		done := make(chan struct{})
+		openBrowser(url, done)
+		<-done
+		log.Printf("browser closed, exiting")
 	}
 	log.Printf("window closed, exiting")
 }

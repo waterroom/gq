@@ -72,6 +72,10 @@ body {
   color: var(--faint);
   font-variant-numeric: tabular-nums;
   margin-top: 1px;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .spacer { flex: 1 1 auto; }
@@ -80,6 +84,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
 .field label {
@@ -90,6 +95,7 @@ body {
 
 .field input {
   width: 170px;
+  min-width: 0;
   padding: 6px 10px;
   border: 1px solid var(--line-strong);
   border-radius: 8px;
@@ -662,6 +668,62 @@ main {
   border-radius: 6px;
   border: 2px solid transparent;
   background-clip: content-box;
+}
+
+/* ---------- narrow windows ---------- */
+
+/* The browser fallback window can be resized freely, unlike the fixed
+   WebView2 shell, so the two-column layout has to survive being narrowed. */
+
+@media (max-width: 960px) {
+  main {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    gap: 12px;
+    padding: 12px;
+  }
+}
+
+@media (max-width: 760px) {
+  .topbar {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 10px 14px;
+    gap: 10px;
+  }
+
+  /* The spacer only exists to push the right-hand controls over; wrapping
+     makes it counter-productive. */
+  .topbar .spacer { display: none; }
+
+  .field { flex: 1 1 120px; }
+  .field input { width: 100%; }
+
+  .brand { min-width: 0; }
+  .brand .sub { max-width: 220px; }
+
+  .banner {
+    flex-wrap: wrap;
+    padding: 8px 14px;
+  }
+
+  .peer-grid {
+    grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .modal-card { padding: 16px; }
+  .modal-actions { gap: 8px; }
+  .modal-actions .ghost, .modal-actions .primary { min-width: 72px; }
+}
+
+@media (max-width: 480px) {
+  .logo { display: none; }
+  .brand h1 { font-size: 15px; }
+  .brand .sub { max-width: 150px; }
+  .dirbox { flex: 1 1 100%; }
+  .drop-card { padding: 20px 24px; }
 }
 ::-webkit-scrollbar-thumb:hover { background: #bfc4d3; background-clip: content-box; }
 ::-webkit-scrollbar-track { background: transparent; }
