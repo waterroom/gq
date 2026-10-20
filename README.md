@@ -258,3 +258,8 @@ test/                       开发期测试脚本（见 test/README.md）
 - 不校验文件哈希，只按字节数校验。
 - 局域网内任何设备都能访问 UI 与 API，无鉴权（个人可信网络使用）。
 - 多网卡（VPN / VMware / WSL）已从扫描中排除，但组播只在物理网卡上 join。
+
+## 许可
+
+MIT，见 [LICENSE](LICENSE)。
+
