@@ -21,6 +21,10 @@ type selfView struct {
 	Port    int      `json:"port"`
 	RecvDir string   `json:"recvDir"`
 	IPs     []string `json:"ips"`
+	// Window is "webview2" for a real app window, "browser" when the runtime
+	// was missing and the UI had to open in Edge/Chrome instead.
+	Window     string `json:"window"`
+	WindowNote string `json:"windowNote,omitempty"`
 }
 
 type stateView struct {
@@ -37,6 +41,7 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("/api/name", a.hName)
 	mux.HandleFunc("/api/recvdir", a.hRecvDir)
 	mux.HandleFunc("/api/open-recv-dir", a.hOpenRecvDir)
+	mux.HandleFunc("/api/open-webview2-download", a.hOpenWebView2Download)
 	mux.HandleFunc("/api/pick-send", a.hPickSend)
 	mux.HandleFunc("/api/send-path", a.hSendPath)
 	mux.HandleFunc("/api/drop-prepare", a.hDropPrepare)
@@ -66,6 +71,11 @@ func (a *App) hState(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.mu.Lock()
+	self.Window = "webview2"
+	if a.windowNote != "" {
+		self.Window = "browser"
+		self.WindowNote = a.windowNote
+	}
 	peers := make([]Peer, 0, len(a.peers))
 	for _, p := range a.peers {
 		peers = append(peers, *p)
@@ -155,6 +165,20 @@ func (a *App) hOpenRecvDir(w http.ResponseWriter, r *http.Request) {
 	a.cfgMu.RUnlock()
 	_ = os.MkdirAll(dir, 0o755)
 	_ = exec.Command("explorer", dir).Start()
+	writeJSON(w, map[string]any{"ok": true})
+}
+
+// webview2RuntimeURL is the official Evergreen bootstrapper. Hard-coded so
+// this endpoint cannot be turned into an open-any-URL gadget.
+const webview2RuntimeURL = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
+
+// hOpenWebView2Download opens the runtime download page in the system browser.
+// The page itself cannot do this: navigating away would replace the UI.
+func (a *App) hOpenWebView2Download(w http.ResponseWriter, r *http.Request) {
+	if !localOnly(w, r) {
+		return
+	}
+	_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", webview2RuntimeURL).Start()
 	writeJSON(w, map[string]any{"ok": true})
 }
 

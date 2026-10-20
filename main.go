@@ -9,6 +9,10 @@ import (
 	"lantransfer/internal/ui"
 )
 
+// logFilePath is kept so the window code can read back what the WebView2
+// library logged about its own failure.
+var logFilePath string
+
 func main() {
 	setupLog()
 
@@ -24,8 +28,9 @@ func main() {
 	}
 	log.Printf("ui at %s", url)
 
-	if !openWindow(url) {
+	if ok, note := openWindow(url); !ok {
 		log.Printf("webview2 unavailable, falling back to system browser")
+		a.SetWindowFallback(note)
 		openBrowser(url)
 		select {}
 	}
@@ -35,7 +40,8 @@ func main() {
 // setupLog writes to a file next to the exe, because a windowsgui binary has no console.
 func setupLog() {
 	dir := exeDir()
-	f, err := os.OpenFile(filepath.Join(dir, "lantransfer.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	p := filepath.Join(dir, "lantransfer.log")
+	f, err := os.OpenFile(p, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		ad, e2 := os.UserConfigDir()
 		if e2 != nil {
@@ -44,12 +50,14 @@ func setupLog() {
 		}
 		d := filepath.Join(ad, "gq")
 		os.MkdirAll(d, 0o755)
-		f, err = os.OpenFile(filepath.Join(d, "lantransfer.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+		p = filepath.Join(d, "lantransfer.log")
+		f, err = os.OpenFile(p, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 		if err != nil {
 			log.SetOutput(os.Stderr)
 			return
 		}
 	}
+	logFilePath = p
 	log.SetOutput(f)
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
 }

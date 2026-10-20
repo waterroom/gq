@@ -20,7 +20,24 @@ Windows 局域网文件互传工具。**单个 exe，双击即用，无需安装
 - 导入表只有 `kernel32.dll`：无第三方 DLL、无 VC++ 运行库、无安装包。
 - 首次运行会在 exe 同目录生成 `lantransfer.json`（约 120 字节）和 `lantransfer.log`；目录不可写时自动改用 `%APPDATA%\gq\`。
 - **把整个文件夹拷到另一台电脑会自动更换设备 ID**（配置里记录主机名）。否则两台机器共用同一个 ID，发现时会把对方当成"自己"而互相看不见。
-- 唯一外部依赖是系统的 **WebView2 Runtime**（Win10/11 自带）。缺失时退回系统浏览器打开界面，功能不受影响。
+- 唯一外部依赖是系统的 **WebView2 Runtime**（Win10/11 自带）。缺失时退回系统浏览器打开界面，功能不受影响；此时界面顶部会说明原因，并给出安装入口。详见下文「如果打开的是浏览器窗口」。
+
+## 如果打开的是浏览器窗口
+
+说明这台机器没有可用的 WebView2 Runtime。**功能完全不受影响**，界面就是网页，照样收发文件，只是窗口带着浏览器的外观。
+
+界面顶部会显示具体原因（带「安装运行时」按钮），同一个原因也会写进 `lantransfer.log`：
+
+```
+webview2: runtime="155.0.4283.62" datapath="C:\Users\...\Local\gq\webview2"
+```
+
+- `runtime=""` → 没装。装 [Evergreen Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) 后即为原生窗口。
+- `runtime="1xx.x.x.x"` 但走了浏览器 → 装了但初始化失败，日志下一行会有 `Result: 80xxxxxx`，按码对照：`0x80070490` 未安装、`0x80070005` 数据目录不可写、`0x80040154` 组件未注册、`0x8007139F` 版本不匹配。
+
+常见于 **Windows Server**（不预装 WebView2，机器名形如 `WIN-XXXXXXXXXXX`）和精简版系统。Edge 浏览器存在不代表 WebView2 Runtime 存在，两者是分开安装的。
+
+WebView2 的浏览器数据目录固定使用 `%LOCALAPPDATA%\gq\webview2`，不会在 exe 旁边生成，也不受 exe 所在位置是否可写影响。
 
 ## 功能
 
@@ -105,6 +122,7 @@ internal/ui/assets/         内嵌 HTML/CSS/JS
 | `LT_CONFIG` | 指定配置文件路径，用于同机多实例测试 |
 | `LT_PORT` | 指定起始监听端口 |
 | `LT_AUTO_ACCEPT=1` | 跳过接收确认，自动接受（无人值守场景） |
+| `LT_FORCE_BROWSER=1` | 强制走浏览器窗口，用于验证降级提示 |
 
 ## 已知限制
 

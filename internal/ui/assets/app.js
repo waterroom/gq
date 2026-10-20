@@ -423,6 +423,28 @@ $('#btnRescan').addEventListener('click', async () => {
 const NO_PEER_ALERT_MS = 20000;
 let emptySince = Date.now();
 let bannerDismissed = false;
+let modeBannerDismissed = false;
+
+// When WebView2 is missing the UI opens in Edge/Chrome, which is easy to
+// mistake for "the wrong app opened". Say why, and offer the one fix.
+function renderWindowMode(self) {
+  if (self.window !== 'browser' || modeBannerDismissed) return;
+  const el = $('#modeBanner');
+  if (!el.classList.contains('hidden')) return;
+  const why = self.windowNote || 'WebView2 不可用';
+  $('#modeBannerText').textContent = `当前运行在浏览器窗口中（${why}）。装上 WebView2 运行时后就是独立的应用窗口。`;
+  el.classList.remove('hidden');
+}
+
+$('#modeBannerClose').addEventListener('click', () => {
+  modeBannerDismissed = true;
+  $('#modeBanner').classList.add('hidden');
+});
+
+$('#btnGetWebView2').addEventListener('click', async () => {
+  const r = await post('/api/open-webview2-download');
+  toast(r && r.ok ? '已在浏览器中打开下载页' : '打开下载页失败');
+});
 
 function showBanner(msg) {
   $('#bannerText').textContent = msg;
@@ -455,6 +477,7 @@ function render(s) {
 
   if (document.activeElement !== nameInput) nameInput.value = s.self.name;
   renderRecvDir(s.self.recvDir);
+  renderWindowMode(s.self);
 
   const peers = s.peers || [];
   renderPeers(peers);

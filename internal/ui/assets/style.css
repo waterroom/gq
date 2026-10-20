@@ -163,6 +163,16 @@ button:active { transform: translateY(1px); }
 
 .banner button { margin-left: auto; flex: 0 0 auto; }
 
+/* Informational variant: the app is running, just not in its own window. */
+.banner.info {
+  background: #eef0ff;
+  border-bottom-color: #d5d9fb;
+  color: #3730a3;
+}
+
+.banner.info button { margin-left: 0; }
+.banner.info #btnGetWebView2 { margin-left: auto; }
+
 main {
   flex: 1 1 auto;
   display: grid;

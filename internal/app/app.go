@@ -125,6 +125,18 @@ type App struct {
 	closed    chan struct{}
 	closeOnce sync.Once
 	wg        sync.WaitGroup
+
+	// windowNote is non-empty when the UI could not run in a native WebView2
+	// window and fell back to a browser. Surfaced in /api/state so the page
+	// can explain itself instead of looking like a stray browser tab.
+	windowNote string
+}
+
+// SetWindowFallback records why the native window was not used.
+func (a *App) SetWindowFallback(reason string) {
+	a.mu.Lock()
+	a.windowNote = reason
+	a.mu.Unlock()
 }
 
 func New(uiFS fs.FS) (*App, error) {
