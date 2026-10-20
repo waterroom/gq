@@ -16,6 +16,11 @@ type Config struct {
 	ID      string `json:"id"`
 	Name    string `json:"name"`
 	RecvDir string `json:"recvDir"`
+	// Host records which machine wrote this config. A portable exe invites
+	// copying the whole folder to another PC; if the device ID travelled with
+	// it, both machines would advertise the same ID and each would filter the
+	// other out as "myself" during discovery.
+	Host string `json:"host,omitempty"`
 }
 
 var (
@@ -76,9 +81,16 @@ func Load() (*Config, error) {
 	if err := json.Unmarshal(b, &c); err != nil {
 		c = *defaults()
 	}
-	if c.ID == "" {
+
+	host, _ := os.Hostname()
+	// Empty ID: fresh install. Host mismatch: the folder was copied from
+	// another machine, so it needs a new identity. Empty Host: config written
+	// by an older build, adopt it as-is rather than silently re-identifying.
+	if c.ID == "" || (c.Host != "" && host != "" && c.Host != host) {
 		c.ID = newID()
 	}
+	c.Host = host
+
 	if strings.TrimSpace(c.Name) == "" {
 		c.Name = defaultName()
 	}
@@ -90,10 +102,12 @@ func Load() (*Config, error) {
 }
 
 func defaults() *Config {
+	h, _ := os.Hostname()
 	return &Config{
 		ID:      newID(),
 		Name:    defaultName(),
 		RecvDir: defaultRecvDir(),
+		Host:    h,
 	}
 }
 
