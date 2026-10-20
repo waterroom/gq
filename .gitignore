@@ -1,0 +1,26 @@
+# 构建产物
+/bin/
+*.exe
+*.dll
+
+# 运行时生成（便携配置/日志）
+lantransfer.json
+lantransfer.log
+*.log
+
+# 测试产物
+/test/out_a/
+/test/out_b/
+/test/edgeprof/
+/test/edgep2/
+/test/*.out
+/test/*.bin
+/test/bstate.json
+
+# WorkBuddy 工作区（会话记忆，不进代码仓库）
+.workbuddy/
+
+# 系统垃圾
+Thumbs.db
+desktop.ini
+.DS_Store

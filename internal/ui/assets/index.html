@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>局域网快传</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="logo">⇄</div>
+  <div class="brand">
+    <h1>局域网快传</h1>
+    <div class="sub" id="selfIps">—</div>
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="field">
+    <label for="nameInput">本机名称</label>
+    <input id="nameInput" maxlength="32" spellcheck="false" autocomplete="off">
+  </div>
+
+  <div class="dirbox">
+    <button class="ghost" id="btnRecvDir" title="更改接收目录">接收目录</button>
+    <button class="ghost" id="btnOpenDir" title="在资源管理器中打开">打开</button>
+  </div>
+</header>
+
+<main>
+  <section class="panel peers-panel">
+    <div class="panel-head">
+      <h2>附近设备 <span class="count" id="peerCount">0</span></h2>
+      <button class="ghost sm" id="btnRescan">重新扫描</button>
+    </div>
+
+    <div class="peer-grid" id="peerGrid"></div>
+
+    <div class="empty" id="peerEmpty">
+      <div class="empty-icon">📡</div>
+      <div class="empty-main">正在寻找同一局域网内的设备</div>
+      <div class="empty-sub">对方也需要运行本程序 · 首次运行请在防火墙弹窗中点“允许”</div>
+    </div>
+  </section>
+
+  <section class="panel trans-panel">
+    <div class="panel-head">
+      <h2>传输</h2>
+    </div>
+    <div class="trans-list" id="transList"></div>
+    <div class="empty small" id="transEmpty">暂无传输任务</div>
+  </section>
+</main>
+
+<div class="modal hidden" id="offerModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div class="avatar" id="offerAvatar">?</div>
+      <div class="modal-meta">
+        <div class="modal-title"><b id="offerSender">—</b> 想发送文件给你</div>
+        <div class="muted" id="offerSummary">—</div>
+      </div>
+    </div>
+    <ul class="filelist" id="offerFiles"></ul>
+    <div class="modal-actions">
+      <button class="ghost" id="btnReject">拒绝</button>
+      <button class="primary" id="btnAccept">接收</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast hidden" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
