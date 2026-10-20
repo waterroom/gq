@@ -149,6 +149,18 @@ WebView2 的浏览器数据目录固定使用 `%LOCALAPPDATA%\gq\webview2`，不
 
 这是 Windows 防火墙拦了**入站**，不是程序问题。典型表现：你能把文件推给对方，对方却看不到你、也发不过来。
 
+### 最省事的修法：点顶栏「放行防火墙」
+
+界面右上角有 **放行防火墙** 按钮。点一下 → Windows 弹 UAC → 点「是」，程序会以管理员身份给自己加一条入站规则（TCP+UDP，**只允许同网段**访问本程序），加完按钮变成绿色的「防火墙已放行」。
+
+- 每台机器**只需要点一次**，规则长期有效，不用管理员命令行
+- 只放开这一个程序的入站，不是关防火墙；`remoteip=localsubnet` 限定同网段
+- 不需要重启程序，加完对方 3 秒内就能连进来
+
+按钮的状态来自实际查询（`netsh advfirewall firewall show rule name="gq LAN"`），已经放行过的机器启动时就直接显示绿色。
+
+### 想手工确认或命令行处理
+
 先确认（两条都不需要管理员）：
 
 ```powershell
@@ -156,7 +168,7 @@ WebView2 的浏览器数据目录固定使用 `%LOCALAPPDATA%\gq\webview2`，不
 Get-NetConnectionProfile | Select-Object Name, InterfaceAlias, NetworkCategory
 
 # 2) 有没有本程序的入站放行规则
-Get-NetFirewallRule -DisplayName "*lantransfer*" | Select DisplayName, Enabled, Direction, Action, Profile
+Get-NetFirewallRule -DisplayName "gq LAN*" | Select DisplayName, Enabled, Direction, Action, Profile
 ```
 
 如果第 1 条显示 **Public**、第 2 条**什么都没有**，就是它了：公用配置文件默认拒绝一切入站。离线局域网常见「未识别的网络」，Windows 会直接按 Public 处理。
@@ -167,8 +179,8 @@ Get-NetFirewallRule -DisplayName "*lantransfer*" | Select DisplayName, Enabled, 
 $exe = "D:\gq\bin\lantransfer.exe"
 # 先删掉可能存在的阻止规则：Block 优先级高于 Allow，留着会一直压着
 Get-NetFirewallRule | Where-Object { $_.DisplayName -like "*lantransfer*" } | Remove-NetFirewallRule -ErrorAction SilentlyContinue
-New-NetFirewallRule -DisplayName "gq LAN TCP" -Direction Inbound -Program $exe -Protocol TCP -Action Allow -Profile Any
-New-NetFirewallRule -DisplayName "gq LAN UDP" -Direction Inbound -Program $exe -Protocol UDP -Action Allow -Profile Any
+New-NetFirewallRule -DisplayName "gq LAN TCP" -Direction Inbound -Program $exe -Protocol TCP -Action Allow -Profile Any -RemoteAddress LocalSubnet
+New-NetFirewallRule -DisplayName "gq LAN UDP" -Direction Inbound -Program $exe -Protocol UDP -Action Allow -Profile Any -RemoteAddress LocalSubnet
 ```
 
 **为什么必须三条一起**：Windows 防火墙里显式 `Block` 规则**优先于** `Allow` 规则。有的机器点过防火墙弹窗的「取消」，就会留下一条针对本程序的 Public/Block 规则；此时只加 Allow 规则毫无效果，必须先删。
@@ -198,6 +210,7 @@ internal/app/
   http.go                   API 路由与收发处理
   send.go                   发送端
   drop.go                   拖拽发送（浏览器文件流转发，不落盘）
+  firewall_windows.go       「放行防火墙」：netsh 加规则 + UAC 提权
   pick_windows.go           Win32 文件/文件夹对话框
 internal/ui/assets/         内嵌 HTML/CSS/JS
 ```
@@ -220,6 +233,8 @@ internal/ui/assets/         内嵌 HTML/CSS/JS
 | POST | `/api/drop-file?job=&idx=` | 拖拽：请求体即文件字节，流式转发（**仅 localhost**） |
 | POST | `/api/drop-done?job=` | 拖拽：结束会话（**仅 localhost**） |
 | POST | `/api/recvdir` | 弹目录选择框，改接收目录（写入配置） |
+| GET | `/api/firewall-status` | 查入站规则是否存在（只读，无需管理员） |
+| POST | `/api/firewall` | 提权添加入站规则（**仅 localhost**，会弹 UAC） |
 
 ## 环境变量（调试用）
 

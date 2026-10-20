@@ -420,6 +420,48 @@ $('#btnRecvDir').addEventListener('click', async () => {
 
 $('#btnOpenDir').addEventListener('click', () => post('/api/open-recv-dir'));
 
+/* ---------------- firewall ---------------- */
+
+// Windows firewall blocks inbound connections by default, and on a network it
+// classifies as Public it does not even show its "allow access" prompt - the
+// failure is completely silent: this machine can send, nobody can send to it.
+// The rule needs administrator rights, so the button starts an elevated copy of
+// this exe and then polls until the rule shows up.
+const btnFirewall = $('#btnFirewall');
+
+async function refreshFirewall() {
+  const r = await api('/api/firewall-status');
+  if (!r) return;
+  btnFirewall.textContent = r.present ? '防火墙已放行' : '放行防火墙';
+  btnFirewall.classList.toggle('done', !!r.present);
+  btnFirewall.title = r.present
+    ? '入站规则已存在：仅允许同网段的设备访问本程序'
+    : '以管理员身份添加防火墙入站规则，让其他电脑能把文件发过来';
+}
+
+btnFirewall.addEventListener('click', async () => {
+  const before = await api('/api/firewall-status');
+  if (before && before.present) return toast('防火墙已放行');
+
+  const r = await post('/api/firewall', {});
+  if (!r) return toast('请求失败');
+  if (!r.ok) return toast(r.error || '提权失败');
+  if (r.present) return refreshFirewall();
+
+  toast('请在系统弹窗中点"是"');
+  for (let i = 0; i < 30; i++) {
+    await new Promise((res) => setTimeout(res, 1000));
+    const s = await api('/api/firewall-status');
+    if (s && s.present) {
+      refreshFirewall();
+      return toast('已放行，其他电脑现在可以发文件给你');
+    }
+  }
+  toast('未检测到规则；若取消了授权请重试，详见 lantransfer.log');
+});
+
+refreshFirewall();
+
 $('#btnRescan').addEventListener('click', async () => {
   await post('/api/rescan');
   toast('正在扫描局域网…');
@@ -496,7 +538,7 @@ function render(s) {
     emptySince = Date.now();
     hideBanner();
   } else if (!bannerDismissed && Date.now() - emptySince > NO_PEER_ALERT_MS) {
-    showBanner('20 秒内未发现任何设备。请确认：① 对方程序已运行；② 本机和对方的 Windows 防火墙都允许了本程序（专用 + 公用网络）。');
+    showBanner('20 秒内未发现任何设备。请确认：① 对方程序已运行；② 本机和对方的 Windows 防火墙都允许了本程序——本机可直接点顶栏「放行防火墙」。');
   }
 
   const queue = s.offers || [];

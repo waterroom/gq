@@ -16,6 +16,13 @@ var logFilePath string
 func main() {
 	setupLog()
 
+	// Elevated helper mode: add the inbound firewall rule and exit. It is
+	// started via the "runas" verb from the UI button, so this window never
+	// blocks on a UAC prompt.
+	if len(os.Args) > 1 && os.Args[1] == "--allow-firewall" {
+		os.Exit(app.AllowFirewallCLI())
+	}
+
 	a, err := app.New(ui.FS())
 	if err != nil {
 		log.Fatalf("init: %v", err)

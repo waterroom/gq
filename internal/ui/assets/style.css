@@ -137,6 +137,15 @@ button:active { transform: translateY(1px); }
 
 .ghost.sm { padding: 5px 10px; font-size: 12px; }
 
+/* Firewall button after the rule exists: keep it visible so the state is
+   readable, but stop it looking like something left to do. */
+.ghost.done {
+  color: #1a7f4b;
+  border-color: #bfe3cf;
+  background: #f2fbf6;
+}
+.ghost.done:hover { background: #f2fbf6; border-color: #bfe3cf; }
+
 .primary {
   padding: 9px 20px;
   background: linear-gradient(135deg, var(--brand), var(--brand-2));

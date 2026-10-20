@@ -41,6 +41,8 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("/api/name", a.hName)
 	mux.HandleFunc("/api/recvdir", a.hRecvDir)
 	mux.HandleFunc("/api/open-recv-dir", a.hOpenRecvDir)
+	mux.HandleFunc("/api/firewall", a.hFirewall)
+	mux.HandleFunc("/api/firewall-status", a.hFirewallStatus)
 	mux.HandleFunc("/api/open-webview2-download", a.hOpenWebView2Download)
 	mux.HandleFunc("/api/pick-send", a.hPickSend)
 	mux.HandleFunc("/api/send-path", a.hSendPath)
