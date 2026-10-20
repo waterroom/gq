@@ -368,7 +368,10 @@ func (a *App) hOffer(w http.ResponseWriter, r *http.Request) {
 	a.cfgMu.RLock()
 	recvDir := a.cfg.RecvDir
 	a.cfgMu.RUnlock()
-	dir := uniqueDir(filepath.Join(recvDir, fmt.Sprintf("%s_%s", cleanName(sender), time.Now().Format("0102-150405"))))
+	// Files land straight in the receive folder. The old behaviour wrapped each
+	// transfer in "<sender>_<timestamp>\" which left a folder behind every time;
+	// name clashes are handled per file instead (see createUnique).
+	dir := recvDir
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		log.Printf("mkdir recv dir: %v", err)
 	}
@@ -415,12 +418,9 @@ func (a *App) hUpload(w http.ResponseWriter, r *http.Request) {
 
 	meta := s.Files[idx]
 	name := s.Names[idx]
-	dst := uniquePath(filepath.Join(s.Dir, name))
-	tmp := dst + ".part"
-
-	f, err := os.Create(tmp)
+	f, dst, tmp, err := createUnique(s.Dir, name)
 	if err != nil {
-		log.Printf("create %s: %v", tmp, err)
+		log.Printf("create recv file %s: %v", name, err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -596,32 +596,37 @@ func cleanName(name string) string {
 	return out
 }
 
-func uniquePath(p string) string {
-	if _, err := os.Stat(p); os.IsNotExist(err) {
-		return p
+// createUnique reserves a free name in dir and returns the open .part file
+// plus the final path it will be renamed to.
+//
+// O_EXCL on the .part file is what makes this safe without a per-transfer
+// folder: two peers uploading "report.pdf" at the same moment both compute
+// "report.pdf", but only one can create "report.pdf.part" - the loser falls
+// through to "report (1).pdf". A finished file of the same name is skipped too,
+// so a later transfer never overwrites an earlier one.
+func createUnique(dir, name string) (*os.File, string, string, error) {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return nil, "", "", err
 	}
-	ext := filepath.Ext(p)
-	base := strings.TrimSuffix(p, ext)
-	for i := 1; i < 1000; i++ {
-		c := fmt.Sprintf("%s (%d)%s", base, i, ext)
-		if _, err := os.Stat(c); os.IsNotExist(err) {
-			return c
+	ext := filepath.Ext(name)
+	base := strings.TrimSuffix(name, ext)
+	for i := 0; i < 1000; i++ {
+		cand := name
+		if i > 0 {
+			cand = fmt.Sprintf("%s (%d)%s", base, i, ext)
+		}
+		dst := filepath.Join(dir, cand)
+		tmp := dst + ".part"
+		if _, err := os.Stat(dst); err == nil {
+			continue // already taken by a finished file
+		}
+		f, err := os.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+		if err == nil {
+			return f, dst, tmp, nil
+		}
+		if !os.IsExist(err) {
+			return nil, "", "", err
 		}
 	}
-	return p
-}
-
-// uniqueDir is uniquePath for receive folders: two peers with the same name
-// sending in the same second must not share a directory.
-func uniqueDir(p string) string {
-	if _, err := os.Stat(p); os.IsNotExist(err) {
-		return p
-	}
-	for i := 1; i < 1000; i++ {
-		c := fmt.Sprintf("%s (%d)", p, i)
-		if _, err := os.Stat(c); os.IsNotExist(err) {
-			return c
-		}
-	}
-	return p
+	return nil, "", "", fmt.Errorf("no free name for %q", name)
 }

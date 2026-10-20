@@ -79,6 +79,6 @@ for t in s['transfers'][:6]:
 
 print('落盘文件:')
 src_md5 = hashlib.md5(open(SRC, 'rb').read()).hexdigest()
-for p in sorted(glob.glob(os.path.join(OUT, '*', 'job*.bin')))[-6:]:
+for p in sorted(glob.glob(os.path.join(OUT, 'job*.bin')))[-6:]:
     h = hashlib.md5(open(p, 'rb').read()).hexdigest()
     print('  ', os.path.relpath(p, OUT), os.path.getsize(p), 'md5', 'OK' if h == src_md5 else 'MISMATCH')

@@ -12,7 +12,7 @@ Windows 局域网文件互传工具。**单个 exe，双击即用，无需安装
 
 接收确认弹窗里会显示文件将保存到哪个目录，**点"更改"可以在接收前换位置**（含每个文件的清单）。
 
-接收的文件默认落在 `%USERPROFILE%\Downloads\gq\<发送者>_<月日-时分秒>\`，顶栏也可以改。
+接收的文件直接落在 `%USERPROFILE%\Downloads\gq\`，**不再按发送者建子文件夹**；文件名撞了自动加 ` (1)`。顶栏可以改这个目录。
 
 ## 便携性
 
@@ -125,7 +125,7 @@ WebView2 的浏览器数据目录固定使用 `%LOCALAPPDATA%\gq\webview2`，不
 | 接收位置 | 确认弹窗内直接看到并可更改，切换后立即生效 |
 | 接收确认 | 弹窗显示文件清单，可拒绝；60 秒不响应自动取消 |
 | 中文文件名 | 支持，非法字符自动替换 |
-| 重名处理 | 自动加 ` (1)` 后缀；每次传输独立子目录 |
+| 重名处理 | 自动加 ` (1)` 后缀，不覆盖已有文件；文件直接落接收目录，不建子文件夹 |
 | 断点续传 | **暂不支持**（按计划留到下一版） |
 
 ## 多人同时使用
@@ -144,6 +144,36 @@ WebView2 的浏览器数据目录固定使用 `%LOCALAPPDATA%\gq\webview2`，不
 - **带宽是共享的**：千兆网总吞吐约 110 MB/s，同时传 3 个文件是各 ~35 MB/s，不会叠加。
 - **磁盘是共享的**：并发写同一块盘会互相拖慢，机械硬盘尤其明显。
 - **接收端串行写**：同一个 session 内多文件串行（先把一个传完再传下一个），避免小文件抢占带宽。
+
+## 对方发不过来 / 只有单向可见
+
+这是 Windows 防火墙拦了**入站**，不是程序问题。典型表现：你能把文件推给对方，对方却看不到你、也发不过来。
+
+先确认（两条都不需要管理员）：
+
+```powershell
+# 1) 本机 192.168.x.x 所在网卡，是不是被识别成 Public
+Get-NetConnectionProfile | Select-Object Name, InterfaceAlias, NetworkCategory
+
+# 2) 有没有本程序的入站放行规则
+Get-NetFirewallRule -DisplayName "*lantransfer*" | Select DisplayName, Enabled, Direction, Action, Profile
+```
+
+如果第 1 条显示 **Public**、第 2 条**什么都没有**，就是它了：公用配置文件默认拒绝一切入站。离线局域网常见「未识别的网络」，Windows 会直接按 Public 处理。
+
+修复（**管理员** PowerShell，路径改成 exe 实际位置）：
+
+```powershell
+$exe = "D:\gq\bin\lantransfer.exe"
+# 先删掉可能存在的阻止规则：Block 优先级高于 Allow，留着会一直压着
+Get-NetFirewallRule | Where-Object { $_.DisplayName -like "*lantransfer*" } | Remove-NetFirewallRule -ErrorAction SilentlyContinue
+New-NetFirewallRule -DisplayName "gq LAN TCP" -Direction Inbound -Program $exe -Protocol TCP -Action Allow -Profile Any
+New-NetFirewallRule -DisplayName "gq LAN UDP" -Direction Inbound -Program $exe -Protocol UDP -Action Allow -Profile Any
+```
+
+**为什么必须三条一起**：Windows 防火墙里显式 `Block` 规则**优先于** `Allow` 规则。有的机器点过防火墙弹窗的「取消」，就会留下一条针对本程序的 Public/Block 规则；此时只加 Allow 规则毫无效果，必须先删。
+
+装好后不需要重启程序，对方 3 秒内（组播）或 60 秒内（扫描兜底）就能看到你。
 
 ## 编译
 
