@@ -144,6 +144,25 @@ button:active { transform: translateY(1px); }
 
 /* ---------- layout ---------- */
 
+.banner {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 20px;
+  background: #fff8ed;
+  border-bottom: 1px solid #f5d9b0;
+  color: #8a4b13;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.banner.hidden { display: none; }
+
+.banner-icon { flex: 0 0 auto; font-size: 14px; }
+
+.banner button { margin-left: auto; flex: 0 0 auto; }
+
 main {
   flex: 1 1 auto;
   display: grid;

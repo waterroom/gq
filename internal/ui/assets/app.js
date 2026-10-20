@@ -254,6 +254,26 @@ $('#btnRescan').addEventListener('click', async () => {
   toast('正在扫描局域网…');
 });
 
+/* ---------------- firewall / discovery warning ---------------- */
+
+const NO_PEER_ALERT_MS = 20000;
+let emptySince = Date.now();
+let bannerDismissed = false;
+
+function showBanner(msg) {
+  $('#bannerText').textContent = msg;
+  $('#banner').classList.remove('hidden');
+}
+
+function hideBanner() {
+  $('#banner').classList.add('hidden');
+}
+
+$('#bannerClose').addEventListener('click', () => {
+  bannerDismissed = true;
+  hideBanner();
+});
+
 /* ---------------- main loop ---------------- */
 
 function render(s) {
@@ -271,8 +291,18 @@ function render(s) {
 
   if (document.activeElement !== nameInput) nameInput.value = s.self.name;
 
-  renderPeers(s.peers || []);
+  const peers = s.peers || [];
+  renderPeers(peers);
   renderTransfers(s.transfers || []);
+
+  // Nothing discovered for 20 s: the overwhelmingly common cause is a firewall
+  // prompt that was never approved, and that failure is otherwise silent.
+  if (peers.length > 0) {
+    emptySince = Date.now();
+    hideBanner();
+  } else if (!bannerDismissed && Date.now() - emptySince > NO_PEER_ALERT_MS) {
+    showBanner('20 秒内未发现任何设备。请确认：① 对方程序已运行；② 本机和对方的 Windows 防火墙都允许了本程序（专用 + 公用网络）。');
+  }
 
   const queue = s.offers || [];
   const head = queue[0] || null;
