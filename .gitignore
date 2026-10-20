@@ -3,6 +3,10 @@
 *.exe
 *.dll
 
+# 离线安装包（204 MB，给无网络的机器用，不进仓库）
+/tools/*.exe
+/tools/*.msi
+
 # 运行时生成（便携配置/日志）
 lantransfer.json
 lantransfer.log

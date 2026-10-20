@@ -47,6 +47,40 @@ webview2: runtime="155.0.4283.62" datapath="C:\Users\...\Local\gq\webview2"
 
 常见于 **Windows Server**（不预装 WebView2，机器名形如 `WIN-XXXXXXXXXXX`）和精简版系统。Edge 浏览器存在不代表 WebView2 Runtime 存在，两者是分开安装的。
 
+### 离线电脑怎么装
+
+微软提供两个安装包，**名字很像，能不能离线用完全不同**：
+
+| 文件 | 大小 | 能否离线 |
+|---|---|---|
+| `MicrosoftEdgeWebview2Setup.exe` | 1.8 MB | ❌ Bootstrapper，安装时还要联网下载 |
+| `MicrosoftEdgeWebView2RuntimeInstallerX64.exe` | 204 MB | ✅ 完整离线包 |
+
+离线机器必须用第二个：
+
+```
+https://go.microsoft.com/fwlink/?linkid=2124701
+```
+
+1. 在有网的机器上下载（文件名 `MicrosoftEdgeWebView2RuntimeInstallerX64.exe`，签名应为 Microsoft Corporation）。
+2. 拷到目标机器，**管理员权限**运行，全程不需要网络。
+3. 需要静默安装时：`MicrosoftEdgeWebView2RuntimeInstallerX64.exe /silent /install`
+4. 装完重开 gq 即为原生窗口；配置、设备 ID、已接收的文件都不变。
+
+如果之前装过损坏的版本导致安装失败，先到「设置 → 应用 → 已安装的应用」卸载 `Microsoft Edge WebView2 Runtime`，再装一次。
+
+### 为什么不换个不依赖 WebView2 的界面库
+
+WebView2 只是窗口外壳，界面本身是 HTML。要彻底摆脱它，得把界面换成 Win32 控件或自绘：
+
+| 方案 | 依赖 | 界面工作 | 结果 |
+|---|---|---|---|
+| WebView2（当前） | 系统运行时 | 无 | 现在的样子 |
+| `lxn/walk` | 无 | **全部重写** | 系统原生控件，观感更朴素，库维护不活跃 |
+| `fyne` | OpenGL + CGO | **全部重写** | 自绘风格，中文字体需内嵌，体积 +10 MB 起 |
+
+现有界面里的拖拽落点、进度动画、排队弹窗、空状态都要在另一套控件模型里重做一遍，而功能不会多出任何一项——差的只是窗口图标和任务栏归属。所以除非 WebView2 在那台机器上完全装不上，不建议走这条路。
+
 WebView2 的浏览器数据目录固定使用 `%LOCALAPPDATA%\gq\webview2`，不会在 exe 旁边生成，也不受 exe 所在位置是否可写影响。
 
 ## 功能
