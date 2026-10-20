@@ -13,10 +13,10 @@ var (
 	shell32  = syscall.NewLazyDLL("shell32.dll")
 	ole32    = syscall.NewLazyDLL("ole32.dll")
 
-	procGetOpenFileNameW      = comdlg32.NewProc("GetOpenFileNameW")
-	procSHBrowseForFolderW    = shell32.NewProc("SHBrowseForFolderW")
-	procSHGetPathFromIDListW  = shell32.NewProc("SHGetPathFromIDListW")
-	procCoTaskMemFree         = ole32.NewProc("CoTaskMemFree")
+	procGetOpenFileNameW     = comdlg32.NewProc("GetOpenFileNameW")
+	procSHBrowseForFolderW   = shell32.NewProc("SHBrowseForFolderW")
+	procSHGetPathFromIDListW = shell32.NewProc("SHGetPathFromIDListW")
+	procCoTaskMemFree        = ole32.NewProc("CoTaskMemFree")
 )
 
 const (

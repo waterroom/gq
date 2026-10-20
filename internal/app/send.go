@@ -50,7 +50,7 @@ func (a *App) startSend(peer Peer, paths []string) (string, error) {
 		metas = append(metas, it.meta)
 	}
 
-	t := a.newTransfer("send", peer.Name, metas)
+	t := a.newTransfer("send", a.peerLabel(peer), metas)
 	go a.doSend(t, peer, items)
 	return t.ID, nil
 }

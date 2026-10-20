@@ -28,9 +28,9 @@ type selfView struct {
 }
 
 type stateView struct {
-	Self      selfView       `json:"self"`
-	Peers     []Peer         `json:"peers"`
-	Transfers []Transfer     `json:"transfers"`
+	Self      selfView        `json:"self"`
+	Peers     []Peer          `json:"peers"`
+	Transfers []Transfer      `json:"transfers"`
 	Offers    []*PendingOffer `json:"offers"`
 }
 
@@ -90,6 +90,7 @@ func (a *App) hState(w http.ResponseWriter, r *http.Request) {
 	offers = append(offers, a.offer...)
 	a.mu.Unlock()
 
+	labelPeers(peers)
 	sort.Slice(peers, func(i, j int) bool { return peers[i].Name < peers[j].Name })
 	writeJSON(w, stateView{Self: self, Peers: peers, Transfers: trs, Offers: offers})
 }

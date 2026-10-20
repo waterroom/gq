@@ -32,7 +32,7 @@ const (
 	// sessionIdleTimeout is refreshed when each file starts uploading, so it
 	// only reaps sessions that stalled before sending any data.
 	sessionIdleTimeout = 5 * time.Minute
-	scanInterval  = 60 * time.Second
+	scanInterval       = 60 * time.Second
 )
 
 // Peer is a remote instance discovered on the LAN.
@@ -43,6 +43,14 @@ type Peer struct {
 	Port int    `json:"port"`
 	OS   string `json:"os"`
 	Last int64  `json:"last"`
+	// Label is Name, qualified with Addr when several live peers answer to the
+	// same name. Office machines keep their Windows defaults, so duplicates are
+	// normal, and a bare name cannot tell two cards apart.
+	Label string `json:"label"`
+	// AddrLabel is the address line on the card: plain Addr normally, but with
+	// the port appended when name and address both collide, so the two cards
+	// still read differently at a glance.
+	AddrLabel string `json:"addrLabel"`
 }
 
 // FileMeta is the metadata negotiated before a transfer starts.
@@ -242,6 +250,54 @@ func listenAny(first, tries int) (net.Listener, int, error) {
 		lastErr = err
 	}
 	return nil, 0, lastErr
+}
+
+// labelPeers fills in Label: the plain name, unless another discovered peer
+// shares it, in which case the address is appended so two cards stay
+// distinguishable. Duplicate names are the norm in an office, not an edge case.
+func labelPeers(peers []Peer) {
+	byName := make(map[string]int, len(peers))
+	byAddr := make(map[string]int, len(peers))
+	for _, p := range peers {
+		byName[p.Name]++
+		byAddr[p.Name+"\x00"+p.Addr]++
+	}
+	for i := range peers {
+		p := &peers[i]
+		switch {
+		case byName[p.Name] == 1:
+			p.Label = p.Name
+			p.AddrLabel = p.Addr
+		case byAddr[p.Name+"\x00"+p.Addr] == 1:
+			p.Label = p.Name + " (" + p.Addr + ")"
+			p.AddrLabel = p.Addr
+		default:
+			// Same name from the same address: only the port separates them.
+			// Happens with two instances on one machine, or behind a NAT.
+			hp := p.Addr + ":" + itoa(p.Port)
+			p.Label = p.Name + " (" + hp + ")"
+			p.AddrLabel = hp
+		}
+	}
+}
+
+// peerLabel is what a transfer row shows for the other side: qualified exactly
+// like the card, because the history outlives the card list.
+func (a *App) peerLabel(p Peer) string {
+	a.mu.Lock()
+	all := make([]Peer, 0, len(a.peers))
+	for _, other := range a.peers {
+		all = append(all, *other)
+	}
+	a.mu.Unlock()
+
+	labelPeers(all)
+	for _, q := range all {
+		if q.ID == p.ID {
+			return q.Label
+		}
+	}
+	return p.Name
 }
 
 func (a *App) newTransfer(dir, peer string, files []FileMeta) *Transfer {

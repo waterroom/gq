@@ -104,7 +104,7 @@ func (a *App) hDropPrepare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	t := a.newTransfer("send", peer.Name, metas)
+	t := a.newTransfer("send", a.peerLabel(peer), metas)
 	client := newDropClient()
 	base := fmt.Sprintf("http://%s:%d", peer.Addr, peer.Port)
 

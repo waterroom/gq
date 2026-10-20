@@ -84,7 +84,10 @@ function renderPeers(peers) {
     const initial = (p.name || '?').trim().charAt(0).toUpperCase();
     if (avatar.textContent !== initial) avatar.textContent = initial;
     el.querySelector('.peer-name').textContent = p.name || '未命名设备';
-    el.querySelector('.peer-ip').textContent = p.addr || '';
+    el.querySelector('.peer-ip').textContent = p.addrLabel || p.addr || '';
+    // The server qualifies the name with the address when two peers share one,
+    // so the drag hint names the same device the card shows.
+    el.dataset.label = p.label || p.name;
   }
 
   grid.querySelectorAll('.peer').forEach((el) => {
@@ -141,6 +144,10 @@ function updateTrans(el, t) {
 
   el.querySelector('.trans-name').textContent = shortName(t);
   el.querySelector('.trans-name').title = shortName(t);
+
+  // The row has no space for the device, but in a room full of people "who was
+  // this from" is the first question asked of the history.
+  if (t.peer) el.title = `${t.dir === 'send' ? '发给' : '来自'} ${t.peer}`;
 
   const pct = t.total > 0 ? Math.min(100, (t.done / t.total) * 100) : 0;
   el.querySelector('.bar > i').style.width = pct.toFixed(1) + '%';
@@ -290,7 +297,7 @@ function hideDropMask() {
 
 function dropHint(card) {
   if (card) {
-    dropTitle.textContent = `发送给 ${card.querySelector('.peer-name').textContent}`;
+    dropTitle.textContent = `发送给 ${card.dataset.label || card.querySelector('.peer-name').textContent}`;
     dropSub.textContent = '松开鼠标开始发送';
     return;
   }
@@ -298,7 +305,7 @@ function dropHint(card) {
     dropTitle.textContent = '还没有发现设备';
     dropSub.textContent = '请先确认对方的程序已经运行，并允许了防火墙';
   } else if (peersCache.length === 1) {
-    dropTitle.textContent = `发送给 ${peersCache[0].name}`;
+    dropTitle.textContent = `发送给 ${peersCache[0].label || peersCache[0].name}`;
     dropSub.textContent = '松开鼠标开始发送';
   } else {
     dropTitle.textContent = '拖到某个设备卡片上';
