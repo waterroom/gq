@@ -432,6 +432,16 @@ const btnFirewall = $('#btnFirewall');
 async function refreshFirewall() {
   const r = await api('/api/firewall-status');
   if (!r) return;
+  // A Block rule outranks the allow rule, so "rule exists" alone is not
+  // success: report the blocking state separately or the button lies.
+  if (r.blocked) {
+    btnFirewall.textContent = '修复防火墙拦截';
+    btnFirewall.classList.remove('done');
+    btnFirewall.classList.add('warn');
+    btnFirewall.title = '存在针对本程序的阻止规则（优先级高于放行），点击清除并重新放行';
+    return;
+  }
+  btnFirewall.classList.remove('warn');
   btnFirewall.textContent = r.present ? '防火墙已放行' : '放行防火墙';
   btnFirewall.classList.toggle('done', !!r.present);
   btnFirewall.title = r.present
@@ -441,23 +451,27 @@ async function refreshFirewall() {
 
 btnFirewall.addEventListener('click', async () => {
   const before = await api('/api/firewall-status');
-  if (before && before.present) return toast('防火墙已放行');
+  if (before && before.present && !before.blocked) return toast('防火墙已放行');
 
   const r = await post('/api/firewall', {});
   if (!r) return toast('请求失败');
   if (!r.ok) return toast(r.error || '提权失败');
-  if (r.present) return refreshFirewall();
+  if (r.present && !r.blocked) return refreshFirewall();
 
   toast('请在系统弹窗中点"是"');
   for (let i = 0; i < 30; i++) {
     await new Promise((res) => setTimeout(res, 1000));
     const s = await api('/api/firewall-status');
-    if (s && s.present) {
+    if (s && s.present && !s.blocked) {
       refreshFirewall();
       return toast('已放行，其他电脑现在可以发文件给你');
     }
   }
-  toast('未检测到规则；若取消了授权请重试，详见 lantransfer.log');
+  // Timed out: report what is actually true rather than a generic failure.
+  const after = await api('/api/firewall-status');
+  refreshFirewall();
+  if (after && after.blocked) toast('仍被阻止规则覆盖，详见 lantransfer.log');
+  else toast('未检测到规则；若取消了授权请重试');
 });
 
 refreshFirewall();

@@ -146,6 +146,15 @@ button:active { transform: translateY(1px); }
 }
 .ghost.done:hover { background: #f2fbf6; border-color: #bfe3cf; }
 
+/* A Block rule outranks the allow rule, so this state is not "done" - it looks
+   like something still broken, because it is. */
+.ghost.warn {
+  color: #b4341f;
+  border-color: #f0c2b8;
+  background: #fff5f2;
+}
+.ghost.warn:hover { background: #ffefea; border-color: #e8a899; }
+
 .primary {
   padding: 9px 20px;
   background: linear-gradient(135deg, var(--brand), var(--brand-2));
