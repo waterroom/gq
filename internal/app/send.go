@@ -68,44 +68,9 @@ func (a *App) doSend(t *Transfer, peer Peer, items []sendItem) {
 	base := fmt.Sprintf("http://%s:%d", peer.Addr, peer.Port)
 
 	// 1. Offer: the receiver shows a prompt and only then answers.
-	offerBody, _ := json.Marshal(map[string]any{
-		"from":  map[string]string{"id": a.cfg.ID, "name": a.cfg.Name},
-		"files": t.Files,
-	})
-	req, err := http.NewRequest(http.MethodPost, base+"/api/offer", bytes.NewReader(offerBody))
-	if err != nil {
-		a.finishTransfer(t, "error", err.Error())
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		a.finishTransfer(t, "error", "对方无响应（可能已离线或防火墙拦截）")
-		return
-	}
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<16))
-	resp.Body.Close()
-
-	switch resp.StatusCode {
-	case http.StatusOK:
-	case http.StatusForbidden:
-		a.finishTransfer(t, "canceled", "对方拒绝了本次传输")
-		return
-	case http.StatusRequestTimeout:
-		a.finishTransfer(t, "error", "对方长时间未确认")
-		return
-	case http.StatusConflict:
-		a.finishTransfer(t, "error", "对方正在接收另一个传输")
-		return
-	default:
-		a.finishTransfer(t, "error", fmt.Sprintf("协商失败 HTTP %d %s", resp.StatusCode, string(body)))
-		return
-	}
-
-	var or offerResp
-	if err := json.Unmarshal(body, &or); err != nil || or.Session == "" {
-		a.finishTransfer(t, "error", "对方返回了无效会话")
+	session, failState, failMsg := a.negotiate(client, base, t.Files)
+	if failState != "" {
+		a.finishTransfer(t, failState, failMsg)
 		return
 	}
 
@@ -120,20 +85,64 @@ func (a *App) doSend(t *Transfer, peer Peer, items []sendItem) {
 		t.Cur = i
 		a.mu.Unlock()
 
-		if err := a.uploadOne(client, base, or.Session, i, it, t); err != nil {
+		if err := a.uploadOne(client, base, session, i, it, t); err != nil {
 			log.Printf("upload %s: %v", it.meta.Name, err)
 			a.finishTransfer(t, "error", err.Error())
-			a.cancelRemote(client, base, or.Session)
+			a.cancelRemote(client, base, session)
 			return
 		}
 	}
 
 	// 3. Close the session so the receiver can flush its UI.
-	dreq, _ := http.NewRequest(http.MethodPost, base+"/api/done?session="+or.Session, nil)
+	dreq, _ := http.NewRequest(http.MethodPost, base+"/api/done?session="+session, nil)
 	if dresp, err := client.Do(dreq); err == nil {
 		dresp.Body.Close()
 	}
 	a.finishTransfer(t, "done", "")
+}
+
+// negotiate runs the offer handshake and maps every failure onto the transfer
+// state the UI already understands. Shared by the file-picker path and the
+// drag-and-drop path, which differ only in where the bytes come from.
+func (a *App) negotiate(client *http.Client, base string, files []FileMeta) (session, failState, failMsg string) {
+	a.cfgMu.RLock()
+	fromID, fromName := a.cfg.ID, a.cfg.Name
+	a.cfgMu.RUnlock()
+
+	offerBody, _ := json.Marshal(map[string]any{
+		"from":  map[string]string{"id": fromID, "name": fromName},
+		"files": files,
+	})
+	req, err := http.NewRequest(http.MethodPost, base+"/api/offer", bytes.NewReader(offerBody))
+	if err != nil {
+		return "", "error", err.Error()
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", "error", "对方无响应（可能已离线或防火墙拦截）"
+	}
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<16))
+	resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+	case http.StatusForbidden:
+		return "", "canceled", "对方拒绝了本次传输"
+	case http.StatusRequestTimeout:
+		return "", "error", "对方长时间未确认"
+	case http.StatusConflict:
+		return "", "error", "对方正在接收另一个传输"
+	default:
+		return "", "error", fmt.Sprintf("协商失败 HTTP %d %s", resp.StatusCode, string(body))
+	}
+
+	var or offerResp
+	if err := json.Unmarshal(body, &or); err != nil || or.Session == "" {
+		return "", "error", "对方返回了无效会话"
+	}
+	return or.Session, "", ""
 }
 
 func (a *App) uploadOne(client *http.Client, base, session string, idx int, it sendItem, t *Transfer) error {

@@ -50,7 +50,10 @@ func (a *App) startUDP() {
 				return
 			}
 			var m announceMsg
-			if json.Unmarshal(buf[:n], &m) != nil || m.ID == "" || m.ID == a.cfg.ID {
+			a.cfgMu.RLock()
+			selfID := a.cfg.ID
+			a.cfgMu.RUnlock()
+			if json.Unmarshal(buf[:n], &m) != nil || m.ID == "" || m.ID == selfID {
 				continue
 			}
 			if m.T == "bye" {
@@ -79,13 +82,16 @@ func (a *App) announceLoop() {
 	if err != nil {
 		return
 	}
-	payload := mustJSON(announceMsg{T: "hi", ID: a.cfg.ID, Name: a.cfg.Name, Port: a.port, OS: "windows"})
-
+	// Rebuild per tick: the payload used to be built once, so a renamed
+	// device kept advertising the old name until the process restarted.
 	tk := time.NewTicker(announceEvery)
 	defer tk.Stop()
 	for {
 		select {
 		case <-tk.C:
+			a.cfgMu.RLock()
+			payload := mustJSON(announceMsg{T: "hi", ID: a.cfg.ID, Name: a.cfg.Name, Port: a.port, OS: "windows"})
+			a.cfgMu.RUnlock()
 			if _, err := a.udp.WriteToUDP(payload, dst); err != nil {
 				log.Printf("announce: %v", err)
 			}
@@ -103,7 +109,9 @@ func (a *App) sendBye() {
 	if err != nil {
 		return
 	}
+	a.cfgMu.RLock()
 	b := mustJSON(announceMsg{T: "bye", ID: a.cfg.ID, Name: a.cfg.Name, Port: a.port, OS: "windows"})
+	a.cfgMu.RUnlock()
 	_, _ = a.udp.WriteToUDP(b, dst)
 }
 
@@ -166,7 +174,10 @@ func (a *App) probe(c *http.Client, ip net.IP) {
 	if json.NewDecoder(io.LimitReader(resp.Body, 4096)).Decode(&info) != nil {
 		return
 	}
-	if info.ID == "" || info.ID == a.cfg.ID {
+	a.cfgMu.RLock()
+	selfID := a.cfg.ID
+	a.cfgMu.RUnlock()
+	if info.ID == "" || info.ID == selfID {
 		return
 	}
 	a.touchPeer(&Peer{

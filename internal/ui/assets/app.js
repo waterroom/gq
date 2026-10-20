@@ -7,6 +7,7 @@ const esc = (s) =>
 
 let currentOffer = null;
 let toastTimer = null;
+let peersCache = [];
 
 function toast(msg) {
   const el = $('#toast');
@@ -58,6 +59,7 @@ function shortName(t) {
 /* ---------------- peers ---------------- */
 
 function renderPeers(peers) {
+  peersCache = peers;
   const grid = $('#peerGrid');
   const seen = new Set();
 
@@ -230,6 +232,166 @@ $('#btnReject').addEventListener('click', async () => {
   await post('/api/reject', { id });
 });
 
+// Where the inbound files will land. The dialog shows it because "where did
+// my file go" is the first question after accepting, and changing it here
+// means it is changed before the transfer starts rather than after.
+function renderRecvDir(dir) {
+  const el = $('#offerDest');
+  const text = dir || '—';
+  el.textContent = text;
+  el.title = text;
+}
+
+$('#btnOfferDir').addEventListener('click', async () => {
+  const r = await post('/api/recvdir');
+  if (!r) return;
+  if (r.ok) {
+    renderRecvDir(r.dir);
+    toast('之后接收的文件会存到这里');
+  } else if (r.error) {
+    toast(r.error);
+  }
+});
+
+/* ---------------- drag & drop ---------------- */
+
+// A dropped file is read by the page and piped straight through this process
+// to the peer. No path is needed, which is what lets the same code work in a
+// WebView2 window and in the Edge fallback window.
+
+let dragDepth = 0;
+
+const dropMask = $('#dropMask');
+const dropTitle = $('#dropTitle');
+const dropSub = $('#dropSub');
+
+const carriesFiles = (e) => {
+  const t = e.dataTransfer;
+  return !!t && Array.from(t.types || []).includes('Files');
+};
+
+function peerCardAt(x, y) {
+  const el = document.elementFromPoint(x, y);
+  return el ? el.closest('.peer') : null;
+}
+
+function setDropTarget(card) {
+  document.querySelectorAll('.peer.drop-target').forEach((el) => {
+    if (el !== card) el.classList.remove('drop-target');
+  });
+  if (card) card.classList.add('drop-target');
+}
+
+function hideDropMask() {
+  dragDepth = 0;
+  dropMask.classList.add('hidden');
+  setDropTarget(null);
+}
+
+function dropHint(card) {
+  if (card) {
+    dropTitle.textContent = `发送给 ${card.querySelector('.peer-name').textContent}`;
+    dropSub.textContent = '松开鼠标开始发送';
+    return;
+  }
+  if (peersCache.length === 0) {
+    dropTitle.textContent = '还没有发现设备';
+    dropSub.textContent = '请先确认对方的程序已经运行，并允许了防火墙';
+  } else if (peersCache.length === 1) {
+    dropTitle.textContent = `发送给 ${peersCache[0].name}`;
+    dropSub.textContent = '松开鼠标开始发送';
+  } else {
+    dropTitle.textContent = '拖到某个设备卡片上';
+    dropSub.textContent = '对准卡片松开，就会发给那一台';
+  }
+}
+
+window.addEventListener('dragenter', (e) => {
+  if (!carriesFiles(e)) return;
+  e.preventDefault();
+  dragDepth++;
+  dropMask.classList.remove('hidden');
+  dropHint(peerCardAt(e.clientX, e.clientY));
+});
+
+window.addEventListener('dragover', (e) => {
+  if (!carriesFiles(e)) return;
+  // Mandatory: without it the webview navigates to the dropped file and the
+  // entire UI is replaced by its contents.
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'copy';
+  const card = peerCardAt(e.clientX, e.clientY);
+  setDropTarget(card);
+  dropHint(card);
+});
+
+window.addEventListener('dragleave', (e) => {
+  if (dragDepth === 0) return;
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (dragDepth === 0) hideDropMask();
+});
+
+window.addEventListener('drop', (e) => {
+  if (!carriesFiles(e)) return;
+  e.preventDefault();
+  e.stopPropagation();
+
+  const card = peerCardAt(e.clientX, e.clientY);
+  hideDropMask();
+
+  const items = Array.from(e.dataTransfer.items || []);
+  const hasDir = items.some((it) => {
+    const entry = it.webkitGetAsEntry ? it.webkitGetAsEntry() : null;
+    return entry && entry.isDirectory;
+  });
+  if (hasDir) {
+    toast('暂不支持拖入文件夹，请点设备卡片上的「文件夹」按钮');
+    return;
+  }
+
+  const files = Array.from(e.dataTransfer.files || []);
+  if (!files.length) return;
+
+  let peerId = card ? card.dataset.id : '';
+  if (!peerId) {
+    if (peersCache.length === 1) peerId = peersCache[0].id;
+    else if (peersCache.length === 0) return toast('还没有发现设备');
+    else return toast('请把文件拖到某个设备卡片上');
+  }
+  dropSend(peerId, files);
+});
+
+async function dropSend(peerId, files) {
+  const metas = files.map((f) => ({ name: f.name, size: f.size }));
+
+  const prep = await post('/api/drop-prepare', { peer: peerId, files: metas });
+  if (!prep) return toast('发送失败');
+  if (!prep.ok) return toast(prep.error || '对方没有接受');
+
+  for (let i = 0; i < files.length; i++) {
+    let r;
+    try {
+      r = await fetch(`/api/drop-file?job=${encodeURIComponent(prep.job)}&idx=${i}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: files[i],
+      });
+    } catch (err) {
+      console.error('drop-file', err);
+      return toast('传输中断');
+    }
+    if (!r.ok) {
+      let msg = '传输失败';
+      try {
+        msg = (await r.json()).error || msg;
+      } catch (_) { /* response had no JSON body */ }
+      return toast(msg);
+    }
+  }
+  await post(`/api/drop-done?job=${encodeURIComponent(prep.job)}`);
+  toast('发送完成');
+}
+
 /* ---------------- top bar ---------------- */
 
 const nameInput = $('#nameInput');
@@ -292,6 +454,7 @@ function render(s) {
   ipsEl.title = ips.length ? ips.join('\n') : '';
 
   if (document.activeElement !== nameInput) nameInput.value = s.self.name;
+  renderRecvDir(s.self.recvDir);
 
   const peers = s.peers || [];
   renderPeers(peers);

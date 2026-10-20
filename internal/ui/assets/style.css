@@ -251,6 +251,18 @@ main {
   pointer-events: none;
 }
 
+/* Drag feedback: the file is coming from the OS, not from the page, so the
+   card has to show it is a live drop target rather than a click target. */
+.peer.drop-target {
+  border-color: var(--brand);
+  border-style: dashed;
+  background: var(--brand-soft);
+  transform: translateY(-2px) scale(1.015);
+  box-shadow: 0 10px 26px rgba(79, 70, 229, .22);
+}
+
+.peer.drop-target .peer-actions { opacity: 0; }
+
 .peer .avatar {
   width: 46px;
   height: 46px;
@@ -532,6 +544,85 @@ main {
 .modal-actions .ghost, .modal-actions .primary {
   min-width: 88px;
   padding: 9px 18px;
+}
+
+/* ---------- inbound: where do these files land ---------- */
+
+.offer-dest {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 8px 10px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+  background: #fafbfe;
+  font-size: 12px;
+}
+
+.offer-dest .dest-label {
+  flex: 0 0 auto;
+  color: var(--faint);
+}
+
+.offer-dest .dest-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-weight: 550;
+}
+
+.offer-dest button {
+  flex: 0 0 auto;
+  padding: 3px 10px;
+}
+
+/* ---------- drag & drop overlay ---------- */
+
+.drop-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: rgba(79, 70, 229, .12);
+  backdrop-filter: blur(2px);
+  /* The overlay must never swallow dragover/drop: the peer card underneath
+     is what decides the destination. */
+  pointer-events: none;
+}
+
+.drop-mask.hidden { display: none; }
+
+.drop-card {
+  padding: 28px 40px;
+  border-radius: 18px;
+  border: 2px dashed var(--brand);
+  background: rgba(255, 255, 255, .96);
+  box-shadow: 0 24px 60px rgba(79, 70, 229, .22);
+  text-align: center;
+  animation: rise .16s ease-out;
+}
+
+.drop-icon {
+  font-size: 34px;
+  line-height: 1;
+  color: var(--brand);
+}
+
+.drop-title {
+  margin-top: 10px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.drop-sub {
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 /* ---------- toast ---------- */

@@ -1,5 +1,6 @@
 {
   "id": "bbbbbbbbbbbbbbbb",
   "name": "接收端",
-  "recvDir": "D:\\gq\\test\\out_b"
+  "recvDir": "D:\\gq\\test\\out_b",
+  "host": "LAPTOP-A86BL87F"
 }

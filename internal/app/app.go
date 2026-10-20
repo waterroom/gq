@@ -104,12 +104,18 @@ type App struct {
 	cfg  *config.Config
 	uiFS fs.FS
 
+	// cfgMu guards cfg fields that HTTP handlers read and write while other
+	// goroutines (announce, negotiate) read them. Plain string assignment is
+	// not atomic, so the mutex is not decoration.
+	cfgMu sync.RWMutex
+
 	peers    map[string]*Peer
 	trans    map[string]*Transfer
 	transOrd []string
 
 	offer    []*PendingOffer
 	sessions map[string]*Session
+	drops    map[string]*dropJob
 
 	ln   net.Listener
 	srv  *http.Server
@@ -132,6 +138,7 @@ func New(uiFS fs.FS) (*App, error) {
 		peers:    make(map[string]*Peer),
 		trans:    make(map[string]*Transfer),
 		sessions: make(map[string]*Session),
+		drops:    make(map[string]*dropJob),
 		closed:   make(chan struct{}),
 	}, nil
 }
@@ -326,6 +333,7 @@ func (a *App) janitorLoop() {
 				}
 			}
 			a.mu.Unlock()
+			a.reapDrops(time.UnixMilli(now))
 		case <-a.closed:
 			return
 		}

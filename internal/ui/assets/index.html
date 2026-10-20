@@ -68,11 +68,24 @@
         <div class="muted" id="offerSummary">—</div>
       </div>
     </div>
+    <div class="offer-dest">
+      <span class="dest-label">保存到</span>
+      <span class="dest-path" id="offerDest">—</span>
+      <button class="ghost sm" id="btnOfferDir">更改</button>
+    </div>
     <ul class="filelist" id="offerFiles"></ul>
     <div class="modal-actions">
       <button class="ghost" id="btnReject">拒绝</button>
       <button class="primary" id="btnAccept">接收</button>
     </div>
+  </div>
+</div>
+
+<div class="drop-mask hidden" id="dropMask">
+  <div class="drop-card">
+    <div class="drop-icon">⤓</div>
+    <div class="drop-title" id="dropTitle">松开鼠标发送</div>
+    <div class="drop-sub" id="dropSub">拖到某个设备卡片上，可直接发给它</div>
   </div>
 </div>
 

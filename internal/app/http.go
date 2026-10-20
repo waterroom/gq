@@ -39,6 +39,9 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("/api/open-recv-dir", a.hOpenRecvDir)
 	mux.HandleFunc("/api/pick-send", a.hPickSend)
 	mux.HandleFunc("/api/send-path", a.hSendPath)
+	mux.HandleFunc("/api/drop-prepare", a.hDropPrepare)
+	mux.HandleFunc("/api/drop-file", a.hDropFile)
+	mux.HandleFunc("/api/drop-done", a.hDropDone)
 	mux.HandleFunc("/api/rescan", a.hRescan)
 	mux.HandleFunc("/api/offer", a.hOffer)
 	mux.HandleFunc("/api/upload", a.hUpload)
@@ -50,12 +53,14 @@ func (a *App) routes() http.Handler {
 }
 
 func (a *App) hState(w http.ResponseWriter, r *http.Request) {
+	a.cfgMu.RLock()
 	self := selfView{
 		ID:      a.cfg.ID,
 		Name:    a.cfg.Name,
 		Port:    a.port,
 		RecvDir: a.cfg.RecvDir,
 	}
+	a.cfgMu.RUnlock()
 	for _, ip := range localIPv4s() {
 		self.IPs = append(self.IPs, ip.String())
 	}
@@ -80,7 +85,10 @@ func (a *App) hState(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) hInfo(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, infoResp{ID: a.cfg.ID, Name: a.cfg.Name, Port: a.port, OS: "windows"})
+	a.cfgMu.RLock()
+	id, name := a.cfg.ID, a.cfg.Name
+	a.cfgMu.RUnlock()
+	writeJSON(w, infoResp{ID: id, Name: name, Port: a.port, OS: "windows"})
 }
 
 func (a *App) hName(w http.ResponseWriter, r *http.Request) {
@@ -99,8 +107,10 @@ func (a *App) hName(w http.ResponseWriter, r *http.Request) {
 	if len([]rune(name)) > 32 {
 		name = string([]rune(name)[:32])
 	}
+	a.cfgMu.Lock()
 	a.cfg.Name = name
 	_ = a.cfg.Save()
+	a.cfgMu.Unlock()
 	writeJSON(w, map[string]any{"ok": true, "name": name})
 }
 
@@ -110,14 +120,41 @@ func (a *App) hRecvDir(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{"ok": false})
 		return
 	}
+	// Catch an unwritable choice now rather than letting every inbound
+	// transfer fail later with "写入失败".
+	if err := ensureWritable(dir); err != nil {
+		writeJSON(w, map[string]any{"ok": false, "error": "该目录不可写：" + err.Error()})
+		return
+	}
+	a.cfgMu.Lock()
 	a.cfg.RecvDir = dir
 	_ = a.cfg.Save()
+	a.cfgMu.Unlock()
 	writeJSON(w, map[string]any{"ok": true, "dir": dir})
 }
 
+// ensureWritable creates the directory and proves a file can be written there.
+// A path can be selectable in the dialog yet unwritable: network shares, a
+// disconnected drive letter, or a folder owned by another user.
+func ensureWritable(dir string) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	f, err := os.CreateTemp(dir, ".gq-write-*")
+	if err != nil {
+		return err
+	}
+	name := f.Name()
+	f.Close()
+	return os.Remove(name)
+}
+
 func (a *App) hOpenRecvDir(w http.ResponseWriter, r *http.Request) {
-	_ = os.MkdirAll(a.cfg.RecvDir, 0o755)
-	_ = exec.Command("explorer", a.cfg.RecvDir).Start()
+	a.cfgMu.RLock()
+	dir := a.cfg.RecvDir
+	a.cfgMu.RUnlock()
+	_ = os.MkdirAll(dir, 0o755)
+	_ = exec.Command("explorer", dir).Start()
 	writeJSON(w, map[string]any{"ok": true})
 }
 
@@ -303,7 +340,10 @@ func (a *App) hOffer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sid := newID()
-	dir := uniqueDir(filepath.Join(a.cfg.RecvDir, fmt.Sprintf("%s_%s", cleanName(sender), time.Now().Format("0102-150405"))))
+	a.cfgMu.RLock()
+	recvDir := a.cfg.RecvDir
+	a.cfgMu.RUnlock()
+	dir := uniqueDir(filepath.Join(recvDir, fmt.Sprintf("%s_%s", cleanName(sender), time.Now().Format("0102-150405"))))
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		log.Printf("mkdir recv dir: %v", err)
 	}
