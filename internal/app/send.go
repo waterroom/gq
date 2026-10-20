@@ -190,3 +190,19 @@ func (p *progressReader) Read(b []byte) (int, error) {
 	}
 	return n, err
 }
+
+// progressWriter is the inbound counterpart. Without it io.Copy only reports
+// the total once at the end, which makes the receiver's bar jump from 0 to
+// 100% in a single step.
+type progressWriter struct {
+	w  io.Writer
+	fn func(int64)
+}
+
+func (p *progressWriter) Write(b []byte) (int, error) {
+	n, err := p.w.Write(b)
+	if n > 0 && p.fn != nil {
+		p.fn(int64(n))
+	}
+	return n, err
+}

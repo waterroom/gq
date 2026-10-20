@@ -368,8 +368,12 @@ func (a *App) hUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	a.mu.Unlock()
 
+	pw := &progressWriter{w: f}
+	if t != nil {
+		pw.fn = func(n int64) { a.addProgress(t, n) }
+	}
 	buf := make([]byte, 512*1024)
-	n, copyErr := io.CopyBuffer(f, io.LimitReader(r.Body, meta.Size), buf)
+	n, copyErr := io.CopyBuffer(pw, io.LimitReader(r.Body, meta.Size), buf)
 	closeErr := f.Close()
 
 	if copyErr != nil || closeErr != nil || n != meta.Size {
@@ -388,9 +392,8 @@ func (a *App) hUpload(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	if t != nil {
-		a.addProgress(t, n)
-	}
+	// No addProgress here: progressWriter already accounted for every byte
+	// while copying. Adding n again would double-count the whole file.
 	w.WriteHeader(http.StatusOK)
 }
 
