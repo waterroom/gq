@@ -33,7 +33,17 @@ webview2: runtime="155.0.4283.62" datapath="C:\Users\...\Local\gq\webview2"
 ```
 
 - `runtime=""` → 没装。装 [Evergreen Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) 后即为原生窗口。
-- `runtime="1xx.x.x.x"` 但走了浏览器 → 装了但初始化失败，日志下一行会有 `Result: 80xxxxxx`，按码对照：`0x80070490` 未安装、`0x80070005` 数据目录不可写、`0x80040154` 组件未注册、`0x8007139F` 版本不匹配。
+- `runtime="1xx.x.x.x"` 但走了浏览器 → 装了但初始化失败，日志下一行有 `Result: 80xxxxxx`，按码对照：
+
+| HRESULT | 含义 | 处理 |
+|---|---|---|
+| `0x80070490` | 运行时未安装 | 安装运行时 |
+| `0x80070002` | 注册表有版本记录，但 `msedgewebview2.exe` 不存在 | **重装运行时**（见下） |
+| `0x80070005` | 数据目录不可写 | 检查 `%LOCALAPPDATA%` 权限 |
+| `0x80040154` | 组件未注册 | 重装运行时 |
+| `0x8007139F` | 运行时版本不匹配 | 重装运行时 |
+
+`0x80070002` 值得单独说：它**不是"没装"**，而是"注册表说有、硬盘上没有"。典型来源是克隆的虚拟机/系统镜像（注册表跟着镜像过来，文件没带）、手工删过 `EdgeWebView` 目录、或 Edge 自动更新后旧版本目录被清掉而注册表没同步。程序现在会直接显示具体缺哪个路径。修复只需重装一次运行时，它会覆盖注册表并补齐文件。
 
 常见于 **Windows Server**（不预装 WebView2，机器名形如 `WIN-XXXXXXXXXXX`）和精简版系统。Edge 浏览器存在不代表 WebView2 Runtime 存在，两者是分开安装的。
 

@@ -74,10 +74,16 @@ func webview2DataPath() string {
 	return p
 }
 
-// diagnoseWebView2 builds the most specific explanation it can. The library
-// prints the real HRESULT to our log (there is no console in a windowsgui
-// build), so read that back first; fall back to a registry probe.
+// diagnoseWebView2 builds the most specific explanation it can.
+//
+// Order matters: a registry entry that points at files which no longer exist
+// is a distinctive failure (cloned VM images, half-removed installs) and names
+// itself better than the bare HRESULT. That case is exactly 0x80070002, which
+// reads as "file not found" but tells the user nothing about which file.
 func diagnoseWebView2() string {
+	if msg := runtimeFileProblem(); msg != "" {
+		return msg
+	}
 	if msg := lastRuntimeError(); msg != "" {
 		return msg
 	}
@@ -85,6 +91,63 @@ func diagnoseWebView2() string {
 		return "WebView2 运行时已安装（" + v + "），但窗口初始化失败，详见 lantransfer.log"
 	}
 	return "未检测到 WebView2 运行时"
+}
+
+// webview2AppDirs lists the directories the runtime installs itself into when
+// they exist. Both locations occur in the wild: the x86 path on 64-bit Windows
+// and the native path on 32-bit installs.
+func webview2AppDirs() []string {
+	pf32 := os.Getenv("ProgramFiles(x86)")
+	if pf32 == "" {
+		pf32 = `C:\Program Files (x86)`
+	}
+	var out []string
+	for _, pf := range []string{pf32, os.Getenv("ProgramFiles")} {
+		if pf == "" {
+			continue
+		}
+		d := filepath.Join(pf, "Microsoft", "EdgeWebView", "Application")
+		if st, err := os.Stat(d); err == nil && st.IsDir() {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// runtimeFileProblem reports a registry entry whose binaries are missing.
+// Returns "" when at least one installed version actually has its executable,
+// so a stale `pv` value alongside a newer working install is not reported as
+// breakage. That "registry says X, disk says nothing" state is what produces
+// 0x80070002 on cloned VM images and half-removed installs.
+func runtimeFileProblem() string {
+	v := installedRuntimeVersion()
+	if v == "" {
+		return ""
+	}
+	dirs := webview2AppDirs()
+	hasExe := false
+	for _, d := range dirs {
+		entries, err := os.ReadDir(d)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if !e.IsDir() {
+				continue
+			}
+			if _, err := os.Stat(filepath.Join(d, e.Name(), "msedgewebview2.exe")); err == nil {
+				hasExe = true
+				break
+			}
+		}
+		if hasExe {
+			return ""
+		}
+	}
+	if len(dirs) == 0 {
+		return "注册表记录 WebView2 " + v + "，但 EdgeWebView\\Application 目录不存在。安装已损坏，请重新安装运行时。"
+	}
+	return "注册表记录 WebView2 " + v + "，但 " + dirs[0] + " 下没有任何 msedgewebview2.exe。安装已损坏，请重新安装运行时。"
 }
 
 // lastRuntimeError reads the tail of our log for the lines the library emits.
@@ -126,8 +189,10 @@ func firstLine(s string) string {
 	if j := strings.IndexByte(s, '\n'); j >= 0 {
 		s = s[:j]
 	}
-	if len(s) > 120 {
-		s = s[:120]
+	// Trim again: logs are CRLF on Windows, so the cut above leaves a '\r'.
+	s = strings.TrimSpace(s)
+	if r := []rune(s); len(r) > 120 {
+		s = string(r[:120])
 	}
 	return s
 }
@@ -137,15 +202,15 @@ func firstLine(s string) string {
 func describeHRESULT(code string) string {
 	c := strings.ToLower(strings.TrimSpace(code))
 	switch c {
-	case "80070490", "80070490\r":
+	case "80070490":
 		return "未安装 WebView2 运行时（0x80070490）"
-	case "80070002", "80070002\r":
-		return "找不到 WebView2 运行时文件（0x80070002）"
-	case "80070005", "80070005\r":
+	case "80070002":
+		return "WebView2 运行时文件找不到（0x80070002），安装可能不完整"
+	case "80070005":
 		return "数据目录不可写，拒绝访问（0x80070005）"
-	case "80040154", "80040154\r":
+	case "80040154":
 		return "WebView2 组件未注册（0x80040154）"
-	case "8007139f", "8007139f\r":
+	case "8007139f":
 		return "WebView2 运行时版本不匹配（0x8007139F）"
 	}
 	if c == "" {
