@@ -53,7 +53,7 @@ func resolvePath() string {
 	if err != nil {
 		return "lantransfer.json"
 	}
-	d := filepath.Join(ad, "LanTransfer")
+	d := filepath.Join(ad, "gq")
 	_ = os.MkdirAll(d, 0o755)
 	return filepath.Join(d, "config.json")
 }
@@ -96,6 +96,12 @@ func Load() (*Config, error) {
 	}
 	if c.RecvDir == "" {
 		c.RecvDir = defaultRecvDir()
+	} else if home, err := os.UserHomeDir(); err == nil {
+		// v0.1 defaulted to a folder named after the old product name; follow
+		// the rename rather than keep writing there after an upgrade.
+		if c.RecvDir == filepath.Join(home, "Downloads", "局域网快传") {
+			c.RecvDir = defaultRecvDir()
+		}
 	}
 	_ = c.Save()
 	return &c, nil
@@ -149,5 +155,5 @@ func defaultRecvDir() string {
 	if err != nil {
 		return "downloads"
 	}
-	return filepath.Join(home, "Downloads", "局域网快传")
+	return filepath.Join(home, "Downloads", "gq")
 }

@@ -19,7 +19,7 @@ func openWindow(url string) bool {
 		Debug:     false,
 		AutoFocus: true,
 		WindowOptions: webview2.WindowOptions{
-			Title:  "局域网快传",
+			Title:  "gq",
 			Width:  1040,
 			Height: 720,
 			Center: true,
@@ -51,7 +51,7 @@ func logWebView2State() {
 // bar and tabs, so the fallback still looks like an application window rather
 // than a page in a browser.
 func openBrowser(url string) {
-	prof := filepath.Join(os.Getenv("LOCALAPPDATA"), "LanTransfer", "browser")
+	prof := filepath.Join(os.Getenv("LOCALAPPDATA"), "gq", "browser")
 	_ = os.MkdirAll(prof, 0o755)
 
 	cands := []string{

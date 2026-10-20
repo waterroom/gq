@@ -42,7 +42,7 @@ func setupLog() {
 			log.SetOutput(os.Stderr)
 			return
 		}
-		d := filepath.Join(ad, "LanTransfer")
+		d := filepath.Join(ad, "gq")
 		os.MkdirAll(d, 0o755)
 		f, err = os.OpenFile(filepath.Join(d, "lantransfer.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 		if err != nil {

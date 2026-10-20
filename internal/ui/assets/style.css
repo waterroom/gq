@@ -62,9 +62,9 @@ body {
 
 .brand h1 {
   margin: 0;
-  font-size: 15px;
-  font-weight: 650;
-  letter-spacing: .2px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: .4px;
 }
 
 .brand .sub {
@@ -394,6 +394,11 @@ main {
 .trans.error .bar > i { background: var(--err); }
 
 /* ---------- empty ---------- */
+
+/* An empty list must not keep its flex share, otherwise the sibling empty
+   state gets pushed to the bottom of the panel instead of centring. */
+.peer-grid.is-empty,
+.trans-list.is-empty { display: none; }
 
 .empty {
   flex: 1 1 auto;

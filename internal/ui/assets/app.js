@@ -91,6 +91,7 @@ function renderPeers(peers) {
 
   $('#peerCount').textContent = String(peers.length);
   $('#peerEmpty').classList.toggle('hidden', peers.length > 0);
+  grid.classList.toggle('is-empty', peers.length === 0);
 }
 
 $('#peerGrid').addEventListener('click', async (e) => {
@@ -180,6 +181,7 @@ function renderTransfers(list) {
     if (!seen.has(el.dataset.tid)) el.remove();
   });
   $('#transEmpty').classList.toggle('hidden', list.length > 0);
+  wrap.classList.toggle('is-empty', list.length === 0);
 }
 
 /* ---------------- inbound offer ---------------- */
@@ -277,7 +279,7 @@ $('#bannerClose').addEventListener('click', () => {
 /* ---------------- main loop ---------------- */
 
 function render(s) {
-  document.title = s.self.name + ' · 局域网快传';
+  document.title = s.self.name + ' · gq';
 
   // Five addresses on a multi-homed box would blow up the header; show the
   // primary one and put the full list in the tooltip.
