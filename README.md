@@ -215,6 +215,8 @@ internal/app/
   firewall_windows.go       「放行防火墙」：netsh 加规则 + UAC 提权
   pick_windows.go           Win32 文件/文件夹对话框
 internal/ui/assets/         内嵌 HTML/CSS/JS
+docs/                       架构设计与调研
+test/                       开发期测试脚本（见 test/README.md）
 ```
 
 ## API

@@ -12,13 +12,12 @@ lantransfer.json
 lantransfer.log
 *.log
 
-# 测试产物
-/test/out_a/
-/test/out_b/
-/test/edgeprof/
-/test/edgep2/
-/test/*.out
+# 测试产物（接收目录、无头浏览器 profile、临时文件、测试样本）
+/test/out_*/
+/test/edge*/
+/test/src/
 /test/*.bin
+/test/*.out
 /test/bstate.json
 
 # WorkBuddy 工作区（会话记忆，不进代码仓库）
